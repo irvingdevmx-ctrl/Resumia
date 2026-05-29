@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="theme-color" content="#0a0a0f"/>
+<meta name="description" content="ResumIA — Resume cualquier texto en segundos con IA"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="ResumIA"/>
+<link rel="manifest" href="manifest.json"/>
+<title>ResumIA — Resumidor con IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --accent: #7c6aff;
+    --accent2: #ff6a9e;
+    --text: #f0f0f8;
+    --muted: #6b6b80;
+    --success: #4fffb0;
+    --card: rgba(255,255,255,0.04);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Fondo animado */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(124,106,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(255,106,158,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: bgPulse 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 16px 80px;
+  }
+
+  /* Header */
+  header {
+    padding: 28px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .uses-badge {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .uses-badge span {
+    color: var(--accent);
+    font-weight: 600;
+    font-family: 'Syne', sans-serif;
+  }
+
+  .uses-badge.unlimited {
+    border-color: rgba(79,255,176,0.3);
+    color: var(--success);
+  }
+
+  /* Textarea */
+  .input-section {
+    margin-top: 8px;
+  }
+
+  .input-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: 'Syne', sans-serif;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 160px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    padding: 16px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus {
+    border-color: rgba(124,106,255,0.4);
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  .char-count {
+    text-align: right;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* Botón principal */
+  .btn-summarize {
+    width: 100%;
+    margin-top: 14px;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #9b8bff);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-summarize:active { transform: scale(0.98); }
+
+  .btn-summarize:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-summarize .btn-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Loading */
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Resultados */
+  .results {
+    margin-top: 24px;
+    display: none;
+    animation: fadeUp 0.4s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .result-card.formal::before {
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .result-card.story::before {
+    background: linear-gradient(90deg, var(--accent2), transparent);
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .result-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .result-card.formal .result-title { color: var(--accent); }
+  .result-card.story .result-title { color: var(--accent2); }
+
+  .btn-copy {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .btn-copy:active { transform: scale(0.95); }
+  .btn-copy.copied { color: var(--success); border-color: rgba(79,255,176,0.3); }
+
+  .result-content {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: rgba(240,240,248,0.85);
+    white-space: pre-wrap;
+  }
+
+  /* Paywall */
+  .paywall {
+    display: none;
+    margin-top: 24px;
+    background: var(--bg2);
+    border: 1px solid rgba(255,106,158,0.2);
+    border-radius: 20px;
+    padding: 28px 20px;
+    text-align: center;
+    animation: fadeUp 0.4s ease;
+  }
+
+  .paywall-emoji { font-size: 2.5rem; margin-bottom: 12px; }
+
+  .paywall h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+  }
+
+  .paywall p {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .price-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(124,106,255,0.15), rgba(255,106,158,0.15));
+    border: 1px solid rgba(124,106,255,0.3);
+    border-radius: 12px;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+  }
+
+  .price-tag .price {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .price-tag .period {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: block;
+  }
+
+  .btn-pay {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent2), #ff9b6a);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+
+  .btn-pay:active { transform: scale(0.98); }
+
+  .btn-activate {
+    width: 100%;
+    margin-top: 12px;
+    padding: 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-activate:active { transform: scale(0.98); }
+
+  /* Modal código */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    padding: 28px 20px 40px;
+    width: 100%;
+    max-width: 600px;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .modal input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    padding: 14px 16px;
+    outline: none;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .modal input:focus { border-color: rgba(124,106,255,0.4); }
+
+  .btn-validate {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  .btn-close-modal {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+
+  .error-msg {
+    color: var(--accent2);
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 8px;
+    display: none;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    z-index: 200;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* API key banner */
+  .api-banner {
+    background: rgba(255,106,158,0.08);
+    border: 1px solid rgba(255,106,158,0.2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    margin-bottom: 16px;
+    display: none;
+    line-height: 1.5;
+  }
+
+  .api-banner a {
+    color: var(--accent2);
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">ResumIA</div>
+    <div class="uses-badge" id="usesBadge">
+      Usos gratis: <span id="usesLeft">3</span>
+    </div>
+  </header>
+
+  <!-- Pantalla de setup API key -->
+  <div id="setupScreen" style="display:none; margin-top:16px;">
+    <div style="background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:24px 20px; text-align:center;">
+      <div style="font-size:2rem; margin-bottom:12px;">🔑</div>
+      <h2 style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.2rem; margin-bottom:8px;">Ingresa tu API Key</h2>
+      <p style="color:var(--muted); font-size:0.85rem; line-height:1.6; margin-bottom:6px;">
+        Necesitas una API key de Gemini (gratis).
+      </p>
+      <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent); font-size:0.82rem; display:block; margin-bottom:20px;">
+        Obtener key gratuita →
+      </a>
+      <input type="password" id="apiKeyInput" placeholder="Pega tu API key aquí"
+        style="width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:12px;
+        color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.9rem; padding:14px 16px;
+        outline:none; margin-bottom:12px; text-align:center;"
+      />
+      <div id="apiError" style="color:var(--accent2); font-size:0.8rem; margin-bottom:10px; display:none;">
+        API key inválida. Verifica e intenta de nuevo.
+      </div>
+      <button onclick="saveApiKey()"
+        style="width:100%; padding:14px; background:linear-gradient(135deg,var(--accent),#9b8bff);
+        border:none; border-radius:12px; color:white; font-family:'Syne',sans-serif;
+        font-weight:700; font-size:0.95rem; cursor:pointer;">
+        Guardar y continuar
+      </button>
+      <p style="color:var(--muted); font-size:0.75rem; margin-top:14px; line-height:1.5;">
+        Tu key se guarda solo en este dispositivo.<br/>Nadie más puede verla.
+      </p>
+    </div>
+  </div>
+
+  <div class="input-section" id="mainApp" style="display:none;">
+    <div class="input-label">Pega tu texto aquí</div>
+    <textarea id="inputText" placeholder="Artículo, nota, email, lo que sea... Pega el texto y la IA lo resume en segundos." maxlength="8000"></textarea>
+    <div class="char-count"><span id="charCount">0</span> / 8000</div>
+
+    <button class="btn-summarize" id="btnSummarize">
+      <div class="btn-inner">
+        <div class="spinner" id="spinner"></div>
+        <span id="btnText">✦ Resumir ahora</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-card formal">
+      <div class="result-header">
+        <div class="result-title">📋 Resumen Formal</div>
+        <button class="btn-copy" onclick="copyText('formalContent', this)">Copiar</button>
+      </div>
+      <div class="result-content" id="formalContent"></div>
+    </div>
+
+    <div class="result-card story">
+      <div class="result-header">
+        <div class="result-title">🎙️ Storytelling</div>
+        <button class="btn-copy" onclick="copyText('storyContent', this)">Copiar</button>
+      </div>
+      <div class="result-content" id="storyContent"></div>
+    </div>
+  </div>
+
+  </div><!-- /mainApp -->
+
+  <div class="paywall" id="paywall">
+    <div class="paywall-emoji">🔒</div>
+    <h2>Usos gratuitos agotados</h2>
+    <p>Desbloquea resúmenes ilimitados con un pago único. Sin suscripciones, tuyo para siempre.</p>
+    <div class="price-tag">
+      <div class="price">$99 MXN</div>
+      <span class="period">pago único · acceso de por vida</span>
+    </div>
+    <a href="https://link.mercadopago.com.mx/aistudiomx" target="_blank" class="btn-pay" onclick="trackPayClick()">
+      💳 Pagar con Mercado Pago
+    </a>
+    <button class="btn-activate" onclick="showModal()">
+      Ya pagué — ingresar código
+    </button>
+  </div>
+</div>
+
+<!-- Modal código de activación -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Activar acceso ilimitado</h3>
+    <p>Ingresa el código que recibiste por WhatsApp después de tu pago.</p>
+    <input type="text" id="codeInput" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" spellcheck="false"/>
+    <div class="error-msg" id="errorMsg">Código inválido. Contacta por WhatsApp si hay algún problema.</div>
+    <button class="btn-validate" onclick="validateCode()">Activar</button>
+    <button class="btn-close-modal" onclick="closeModal()">Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // Códigos de activación válidos
+  const VALID_CODES = ['RESUMIA-2026', 'IRVING-PRO', 'AISTU-DEMO'];
+
+  const MAX_FREE_USES = 3;
+  let isUnlimited = localStorage.getItem('resumia_unlimited') === 'true';
+  let usesCount = parseInt(localStorage.getItem('resumia_uses') || '0');
+  let GEMINI_API_KEY = localStorage.getItem('resumia_apikey') || '';
+
+  // Mostrar pantalla correcta al iniciar
+  function initApp() {
+    if (!GEMINI_API_KEY) {
+      document.getElementById('setupScreen').style.display = 'block';
+      document.getElementById('mainApp').style.display = 'none';
+    } else {
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'block';
+      updateUsesUI();
+    }
+  }
+  initApp();
+
+  // Guardar API key
+  async function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key || key.length < 20) {
+      document.getElementById('apiError').style.display = 'block';
+      return;
+    }
+    // Validar key haciendo una llamada de prueba
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'Hola' }] }], generationConfig: { maxOutputTokens: 5 } })
+        }
+      );
+      if (!res.ok) throw new Error('invalid');
+      GEMINI_API_KEY = key;
+      localStorage.setItem('resumia_apikey', key);
+      document.getElementById('apiError').style.display = 'none';
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'block';
+      updateUsesUI();
+    } catch {
+      document.getElementById('apiError').style.display = 'block';
+    }
+  }
+
+  // Inicializar UI
+  function updateUsesUI() {
+    const badge = document.getElementById('usesBadge');
+    if (isUnlimited) {
+      badge.innerHTML = '✦ Ilimitado';
+      badge.classList.add('unlimited');
+    } else {
+      const left = Math.max(0, MAX_FREE_USES - usesCount);
+      document.getElementById('usesLeft').textContent = left;
+    }
+  }
+  updateUsesUI();
+
+  // Contador de caracteres
+  const inputText = document.getElementById('inputText');
+  inputText.addEventListener('input', () => {
+    document.getElementById('charCount').textContent = inputText.value.length;
+  });
+
+  // Formatear código automáticamente
+  document.getElementById('codeInput').addEventListener('input', (e) => {
+    let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    e.target.value = val;
+  });
+
+  // Resumir
+  document.getElementById('btnSummarize').addEventListener('click', async () => {
+    const text = inputText.value.trim();
+
+    if (!text || text.length < 50) {
+      showToast('El texto es muy corto. Mínimo 50 caracteres.');
+      return;
+    }
+
+    if (!isUnlimited && usesCount >= MAX_FREE_USES) {
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('paywall').style.display = 'block';
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const [formal, story] = await Promise.all([
+        callGemini(text, 'formal'),
+        callGemini(text, 'story')
+      ]);
+
+      document.getElementById('formalContent').textContent = formal;
+      document.getElementById('storyContent').textContent = story;
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('paywall').style.display = 'none';
+
+      // Incrementar usos
+      if (!isUnlimited) {
+        usesCount++;
+        localStorage.setItem('resumia_uses', usesCount);
+        updateUsesUI();
+
+        if (usesCount >= MAX_FREE_USES) {
+          setTimeout(() => {
+            showToast('Último uso gratuito. Desbloquea acceso ilimitado 👆');
+          }, 1500);
+        }
+      }
+
+    } catch (err) {
+      showToast('Error al conectar con la IA. Verifica tu API key.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  async function callGemini(text, type) {
+    const prompts = {
+      formal: `Eres un asistente experto en síntesis de información. Resume el siguiente texto en formato de viñetas profesionales. Usa bullet points (•) para cada punto clave. Máximo 6 puntos. Sé conciso y preciso. Sin preamble.
+
+TEXTO:
+${text}`,
+      story: `Eres un narrador experto. Resume el siguiente texto como si se lo contaras a un amigo de forma conversacional y entretenida. Usa lenguaje natural, dinámico y fácil de leer. 3-4 párrafos cortos. Sin bullet points. Empieza directo con la historia.
+
+TEXTO:
+${text}`
+    };
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompts[type] }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+        })
+      }
+    );
+
+    if (!response.ok) throw new Error('API error: ' + response.status);
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta';
+  }
+
+  function setLoading(loading) {
+    const btn = document.getElementById('btnSummarize');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    btn.disabled = loading;
+    spinner.style.display = loading ? 'block' : 'none';
+    btnText.textContent = loading ? 'Resumiendo...' : '✦ Resumir ahora';
+  }
+
+  function copyText(id, btn) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copiar';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function showModal() {
+    document.getElementById('modalOverlay').classList.add('active');
+    document.getElementById('codeInput').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+    document.getElementById('errorMsg').style.display = 'none';
+    document.getElementById('codeInput').value = '';
+  }
+
+  function validateCode() {
+    const code = document.getElementById('codeInput').value.trim();
+    if (VALID_CODES.includes(code)) {
+      isUnlimited = true;
+      localStorage.setItem('resumia_unlimited', 'true');
+      updateUsesUI();
+      closeModal();
+      document.getElementById('paywall').style.display = 'none';
+      showToast('🎉 ¡Acceso ilimitado activado!');
+    } else {
+      document.getElementById('errorMsg').style.display = 'block';
+    }
+  }
+
+  function trackPayClick() {
+    // Aquí podrías registrar el click si quisieras analytics
+    showToast('Redirigiendo a Mercado Pago...');
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // Cerrar modal al tocar fuera
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  // Service Worker para PWA
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
